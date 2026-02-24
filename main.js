@@ -22,7 +22,7 @@ function statusColor(status) {
   const s = norm(status);
   if (s.includes("done") || s.includes("complete")) return "#2ecc71";   // green
   if (s.includes("ongoing") || s.includes("progress")) return "#f1c40f"; // yellow
-  if (s.includes("todo") || s.includes("pending") || s.includes("to do")) return "#bdc3c7"; // calm medium gray
+  if (s.includes("todo") || s.includes("pending") || s.includes("to do")) return "#ff5100"; // calm medium gray
   return "#e8ecef"; // very light gray for unknown
 }
 
