@@ -15,15 +15,15 @@ const GEO_UPAZILA_KEY = "adm3_name";
 const GEO_DISTRICT_KEY = "adm2_name";
 const GEO_DIVISION_KEY = "adm1_name";
 
-// Color function for Status
+// Updated color function - ToDo now calm gray
 function statusColor(status) {
-  if (!status) return "#cccccc"; // grey for no data
+  if (!status) return "#e8ecef"; // very light gray for no data
   
-  const s = status.trim().toLowerCase();
+  const s = norm(status);
   if (s.includes("done") || s.includes("complete")) return "#2ecc71";   // green
   if (s.includes("ongoing") || s.includes("progress")) return "#f1c40f"; // yellow
-  if (s.includes("todo") || s.includes("pending") || s.includes("to do")) return "#e74c3c"; // red
-  return "#cccccc"; // unknown
+  if (s.includes("todo") || s.includes("pending") || s.includes("to do")) return "#bdc3c7"; // calm medium gray
+  return "#e8ecef"; // very light gray for unknown
 }
 
 // Normalize for matching (handles extra spaces, case)
