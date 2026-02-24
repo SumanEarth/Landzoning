@@ -2,50 +2,74 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Bangladesh Land Zoning Status</title>
+  <title>Bangladesh Upazila Zoning Status</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-    crossorigin=""
-  />
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
   <style>
     html, body {
       margin: 0;
       padding: 0;
       height: 100%;
+      font-family: Arial, sans-serif;
     }
     #map {
       width: 100%;
       height: 100vh;
     }
-    .legend {
+    .info-panel {
+      position: absolute;
+      top: 10px;
+      left: 10px;
       background: white;
-      padding: 8px;
+      padding: 10px;
+      border-radius: 5px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+      z-index: 1000;
+      max-width: 300px;
+    }
+    .legend {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      background: white;
+      padding: 12px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+      z-index: 1000;
       font-size: 13px;
-      line-height: 18px;
     }
     .legend div {
-      margin-bottom: 4px;
+      margin-bottom: 6px;
     }
     .legend span {
       display: inline-block;
-      width: 12px;
-      height: 12px;
-      margin-right: 4px;
+      width: 16px;
+      height: 16px;
+      margin-right: 8px;
       vertical-align: middle;
+      border: 1px solid #ccc;
+    }
+    .stats {
+      margin-bottom: 10px;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
   <div id="map"></div>
+  
+  <!-- Info panel -->
+  <div class="info-panel" id="info-panel">
+    <h3>Bangladesh Land Zoning</h3>
+    <div id="stats" class="stats">Loading...</div>
+    <p>Click upazilas for details. Colors update live from Google Sheets.</p>
+  </div>
 
-  <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-o9N1j7kGStb6jHcG3gp0QaoJYv7gpVkaWfFfZx3A4bM="
-    crossorigin=""
-  ></script>
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="./main.js"></script>
 </body>
 </html>
