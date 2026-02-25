@@ -178,12 +178,65 @@ async function initMap() {
   }).addTo(map);
   
   // SEARCH BAR
-  const searchControl = new GeoSearch.GeoSearchControl({
-    provider: new GeoSearch.OpenStreetMapProvider({params: {countrycodes: 'bd'}}),
-    style: 'bar', position: 'topleft', autoClose: true, keepResult: true
-  });
-  map.addControl(searchControl);
-  
+	// CUSTOM UPAZILA SEARCH (replaces broken GeoSearch)
+	const upazilaNames = [];
+	geojson.features.forEach(f => {
+		upazilaNames.push({
+			name: f.properties[GEO_UPAZILA_KEY],
+			bounds: L.geoJSON(f).getBounds(),
+			feature: f
+		});
+	});
+
+	const customSearch = L.control({position: 'topleft'});
+	customSearch.onAdd = function(map) {
+		const div = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+		div.innerHTML = `
+			<div style="background:white; padding:8px; border-radius:4px 4px 0 0; border:1px solid #ccc;">
+				<input id="upazilaSearch" placeholder="🔍 Search upazila..." style="border:none; outline:none; width:160px; font-size:13px;" />
+			</div>
+			<div id="searchResults" style="background:white; max-height:120px; overflow:auto; display:none; border:1px solid #ccc; border-top:none; border-radius:0 0 4px 4px;"></div>
+		`;
+		
+		const input = div.querySelector('#upazilaSearch');
+		const results = div.querySelector('#searchResults');
+		
+		input.addEventListener('input', (e) => {
+			const term = e.target.value.toLowerCase();
+			results.innerHTML = '';
+			results.style.display = 'none';
+			
+			if (term.length < 2) return;
+			
+			const matches = upazilaNames.filter(u => 
+				u.name.toLowerCase().includes(term)
+			).slice(0, 8);
+			
+			if (matches.length) {
+				matches.forEach(u => {
+					const btn = document.createElement('div');
+					btn.textContent = u.name;
+					btn.style.padding = '6px 8px';
+					btn.style.cursor = 'pointer';
+					btn.style.borderBottom = '1px solid #eee';
+					btn.style.fontSize = '13px';
+					btn.onmouseover = () => btn.style.background = '#f0f0f0';
+					btn.onmouseout = () => btn.style.background = 'white';
+					btn.onclick = () => {
+						map.fitBounds(u.bounds, {padding: [30,30], maxZoom: 12});
+						results.style.display = 'none';
+						input.value = u.name;
+					};
+					results.appendChild(btn);
+				});
+				results.style.display = 'block';
+			}
+		});
+		
+		return div;
+	};
+	map.addControl(customSearch);
+
   const statusMap = await loadSheetData();
   
   // UPAZILA LAYER
@@ -225,14 +278,25 @@ async function initMap() {
   map.fitBounds(upazilaLayer.getBounds());
   
   // LEGEND WITH STATS
-  const legend = L.control({position:"bottomright"});
-  legend.onAdd = () => {
-    const div = L.DomUtil.create("div", "legend");
-    window.legendDiv = div;
-    return div;
-  };
-  legend.addTo(map);
-  
+	// LEGEND WITH LIVE STATS
+	const legend = L.control({position: "bottomright"});
+	legend.onAdd = function(map) {
+		const div = L.DomUtil.create('div', 'info legend');
+		window.legendDiv = div;  // Global reference
+		div.style.background = 'white';
+		div.style.padding = '16px';
+		div.style.borderRadius = '8px';
+		div.style.boxShadow = '0 4px 20px rgba(0,0,0,0.2)';
+		div.style.minWidth = '200px';
+		div.style.fontFamily = 'Arial, sans-serif';
+		div.style.zIndex = 1000;
+		return div;
+	};
+	legend.addTo(map);
+
+	// Force initial update
+	setTimeout(() => updateStatsDisplay({done:0,ongoing:0,todo:0,total:0},0), 100);
+
   // Auto-refresh
   setInterval(loadSheetData, 3*60*1000);
 }
