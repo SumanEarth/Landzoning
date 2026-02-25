@@ -1,214 +1,240 @@
-// CONFIG - UPDATE THESE TWO LINES
-const SHEET_ID = "1xRA1Padw-hKv-ZprqqWH6KCtCE-PvtJtZeWfwfeihYw"; // From your bdupazila Google Sheet URL
-const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=upazilas`; // Added sheet=upazilas
+// CONFIG
+const SHEET_ID = "1xRA1Padw-hKv-ZprqqWH6KCtCE-PvtJtZeWfwfeihYw";
+const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=upazilas`;
 
-// Column indices for your Sheet: FID, Country, Division, District, Upazila, Status, upazila_pcode
-const COL_UPCODE = 6;    // upazila_pcode
-const COL_STATUS = 5;    // Status
-const COL_UPAZILA = 4;   // Upazila (for popup)
-const COL_DISTRICT = 3;  // District
-const COL_DIVISION = 2;  // Division
+// Column indices
+const COL_UPCODE = 6, COL_STATUS = 5, COL_UPAZILA = 4, COL_DISTRICT = 3, COL_DIVISION = 2;
 
-// GeoJSON property keys (your exact headers)
-const GEO_UPCODE_KEY = "adm3_pcode";
-const GEO_UPAZILA_KEY = "adm3_name";
-const GEO_DISTRICT_KEY = "adm2_name";
-const GEO_DIVISION_KEY = "adm1_name";
+// GeoJSON keys
+const GEO_UPCODE_KEY = "adm3_pcode", GEO_UPAZILA_KEY = "adm3_name", GEO_DISTRICT_KEY = "adm2_name", GEO_DIVISION_KEY = "adm1_name";
 
-// Updated color function - ToDo now calm gray
+// Color function (ToDo = calm gray)
 function statusColor(status) {
-  if (!status) return "#e8ecef"; // very light gray for no data
-  
-  const s = norm(status);
-  if (s.includes("done") || s.includes("complete")) return "#2ecc71";   // green
-  if (s.includes("ongoing") || s.includes("progress")) return "#f1c40f"; // yellow
-  if (s.includes("todo") || s.includes("pending") || s.includes("to do")) return "#e74c3c"; // calm medium gray
-  return "#e8ecef"; // very light gray for unknown
+  if (!status) return "#e8ecef";
+  const s = status.toString().trim().toLowerCase();
+  if (s.includes("done") || s.includes("complete")) return "#2ecc71";
+  if (s.includes("ongoing") || s.includes("progress")) return "#f1c40f";
+  if (s.includes("todo") || s.includes("pending") || s.includes("to do")) return "#bdc3c7";
+  return "#e8ecef";
 }
 
-// Normalize for matching (handles extra spaces, case)
 function norm(str) {
   return (str || "").toString().trim().toLowerCase();
 }
 
-// Enhanced loadSheetData with stats calculation
+// Global lists for table
+let doneList = [], ongoingList = [], todoList = [];
+
+// Toggle table modal
+function toggleTable() {
+  document.getElementById('dataTableContainer').style.display = 
+    document.getElementById('dataTableContainer').style.display === 'none' ? 'block' : 'none';
+}
+
+// Show filtered table
+function showStatusTable(statusType) {
+  let list = [], title = '';
+  if (statusType === 'done') { list = doneList; title = `Done Upazilas (${list.length})`; }
+  else if (statusType === 'ongoing') { list = ongoingList; title = `Ongoing Upazilas (${list.length})`; }
+  else if (statusType === 'todo') { list = todoList; title = `ToDo Upazilas (${list.length})`; }
+  
+  document.getElementById('tableTitle').textContent = title;
+  
+  const divisions = [...new Set(list.map(item => item.division))].sort();
+  
+  document.getElementById('statusTable').innerHTML = `
+    <div style="margin-bottom:15px;">
+      <label style="font-weight:bold; margin-right:10px;">Filter Division:</label>
+      <select id="divisionFilter" onchange="filterTableByDivision()" style="padding:8px 12px; border:1px solid #ddd; border-radius:5px; min-width:200px;">
+        <option value="">All (${divisions.length})</option>
+        ${divisions.map(div => `<option value="${div}">${div}</option>`).join('')}
+      </select>
+      <span id="filterCount" style="margin-left:15px; font-weight:bold; color:#666;"></span>
+    </div>
+    <div style="max-height:60vh; overflow:auto;">
+      <table id="statusTableInner" style="width:100%; border-collapse:collapse; font-size:13px;">
+        <thead><tr style="background:#f8f9fa;">
+          <th style="padding:12px 8px; border:1px solid #ddd;">Division</th>
+          <th style="padding:12px 8px; border:1px solid #ddd;">District</th>
+          <th style="padding:12px 8px; border:1px solid #ddd;">Upazila</th>
+          <th style="padding:12px 8px; border:1px solid #ddd;">Status</th>
+        </tr></thead>
+        <tbody id="tableBody">${list.map(item => `<tr data-division="${item.division}" style="background:${
+          statusType === 'done' ? '#d4edda' : statusType === 'ongoing' ? '#fff3cd' : '#f8f9fa'
+        };">
+          <td style="padding:8px; border:1px solid #ddd;">${item.division}</td>
+          <td style="padding:8px; border:1px solid #ddd;">${item.district}</td>
+          <td style="padding:8px; border:1px solid #ddd; font-weight:500;">${item.upazila}</td>
+          <td style="padding:8px; border:1px solid #ddd; color:${statusColor(item.status)};">${item.status}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>
+  `;
+  toggleTable();
+  filterTableByDivision();
+}
+
+function filterTableByDivision() {
+  const filter = document.getElementById('divisionFilter')?.value || '';
+  const rows = document.querySelectorAll('#tableBody tr');
+  let count = 0;
+  rows.forEach(row => {
+    const div = row.getAttribute('data-division') || '';
+    row.style.display = (!filter || div.toLowerCase().includes(filter.toLowerCase())) ? '' : 'none';
+    if (row.style.display !== 'none') count++;
+  });
+  document.getElementById('filterCount').textContent = filter ? `Showing ${count}` : `Showing all ${rows.length}`;
+}
+
+// Load Google Sheet + build lists
 async function loadSheetData() {
   try {
     const res = await fetch(SHEET_URL);
     const text = await res.text();
-    
-    // Extract JSON from Google's gviz wrapper
     const jsonStr = text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1);
     const data = JSON.parse(jsonStr);
-    
     const table = data.table.rows || [];
+    
     const statusMap = new Map();
-    const stats = { done: 0, ongoing: 0, todo: 0, total: 0, nodata: 0 };
+    const stats = {done:0, ongoing:0, todo:0, total:0, nodata:0};
+    doneList = []; ongoingList = []; todoList = [];
     
     table.forEach((row, idx) => {
-      // Skip header row
       if (idx === 0) return;
-      
       const upcode = row.c[COL_UPCODE]?.v;
       const status = row.c[COL_STATUS]?.v;
+      const division = row.c[COL_DIVISION]?.v;
+      const district = row.c[COL_DISTRICT]?.v;
+      const upazila = row.c[COL_UPAZILA]?.v;
       
-      if (upcode) {
+      if (upcode && upazila) {
         stats.total++;
-        const rec = {
-          status,
-          upazila: row.c[COL_UPAZILA]?.v,
-          district: row.c[COL_DISTRICT]?.v,
-          division: row.c[COL_DIVISION]?.v
-        };
-        statusMap.set(upcode, rec);
+        const entry = {division, district, upazila, status, upcode};
+        statusMap.set(upcode, entry);
         
-        // Count stats
         const s = norm(status);
-        if (s.includes("done") || s.includes("complete")) stats.done++;
-        else if (s.includes("ongoing") || s.includes("progress")) stats.ongoing++;
-        else if (s.includes("todo") || s.includes("pending") || s.includes("to do")) stats.todo++;
-        else stats.nodata++;
+        if (s.includes("done") || s.includes("complete")) {
+          stats.done++; doneList.push(entry);
+        } else if (s.includes("ongoing") || s.includes("progress")) {
+          stats.ongoing++; ongoingList.push(entry);
+        } else if (s.includes("todo") || s.includes("pending")) {
+          stats.todo++; todoList.push(entry);
+        } else stats.nodata++;
       }
     });
     
-    // Update stats display
     updateStatsDisplay(stats, statusMap.size);
-    
     console.log(`Loaded ${statusMap.size} upazilas:`, stats);
     return statusMap;
   } catch (err) {
-    console.error("Sheet load error:", err);
-    updateStatsDisplay({done:0, ongoing:0, todo:0, total:0, nodata:0}, 0);
+    console.error("Sheet error:", err);
     return new Map();
   }
 }
 
-// New function: Update top-left stats panel
+// Update legend with stats + buttons
 function updateStatsDisplay(stats, mapSize) {
-  const totalUpazilas = 495; // Bangladesh has ~495 upazilas
+  const totalUpazilas = 495;
   const progress = ((stats.done + stats.ongoing) / totalUpazilas * 100).toFixed(1);
   
-  document.getElementById('stats').innerHTML = `
-    <div>📊 <strong>Progress: ${progress}%</strong></div>
-    <div>✅ <strong>Done:</strong> ${stats.done}</div>
-    <div>⏳ <strong>Ongoing:</strong> ${stats.ongoing}</div>
-    <div>🔴 <strong>ToDo:</strong> ${stats.todo}</div>
-    <div>❓ No data: ${stats.nodata}</div>
-    <div style="font-size: 11px; color: #666;">
-      Last updated: ${new Date().toLocaleTimeString()}
-    </div>
-  `;
+  if (window.legendDiv) {
+    window.legendDiv.innerHTML = `
+      <div style="font-weight:bold; font-size:14px; margin-bottom:12px; text-align:center; color:#2c3e50; padding-bottom:8px; border-bottom:1px solid #eee;">
+        📊 Zoning Progress<br><span style="font-size:20px;">${progress}%</span>
+      </div>
+      <div style="margin-bottom:8px;">
+        <span style="display:inline-block;width:16px;height:16px;background:#2ecc71;margin-right:8px;border:1px solid #ddd;"></span>
+        ✅ Done: <strong>${stats.done}</strong>
+      </div>
+      <div style="margin-bottom:8px;">
+        <span style="display:inline-block;width:16px;height:16px;background:#f1c40f;margin-right:8px;border:1px solid #ddd;"></span>
+        ⏳ Ongoing: <strong>${stats.ongoing}</strong>
+      </div>
+      <div style="margin-bottom:12px;">
+        <span style="display:inline-block;width:16px;height:16px;background:#bdc3c7;margin-right:8px;border:1px solid #ddd;"></span>
+        🔄 ToDo: <strong>${stats.todo}</strong>
+      </div>
+      <div style="margin-bottom:12px; text-align:center; font-size:12px; color:#666;">
+        Total: ${stats.total} upazilas
+      </div>
+      <div style="text-align:center;">
+        <button onclick="showStatusTable('done')" style="background:#2ecc71;color:white;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;margin:2px;font-size:12px;">📋 View Done</button>
+        <button onclick="showStatusTable('ongoing')" style="background:#f1c40f;color:#333;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;margin:2px;font-size:12px;">📋 View Ongoing</button>
+        <button onclick="showStatusTable('todo')" style="background:#bdc3c7;color:#333;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;margin:2px;font-size:12px;">📋 View ToDo</button>
+      </div>
+      <div style="font-size:11px; color:#888; text-align:center; padding-top:8px; border-top:1px solid #eee;">
+        Updated: ${new Date().toLocaleTimeString()}
+      </div>
+    `;
+  }
 }
 
-// Update initMap to refresh stats periodically
+// Main map
 async function initMap() {
-  const map = L.map("map").setView([23.7, 90.4], 7); // Bangladesh center
+  const map = L.map("map").setView([23.7, 90.4], 7);
   
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 12,
-    attribution: "© OpenStreetMap contributors"
+    maxZoom: 13, attribution: "© OpenStreetMap | Land Zoning Dashboard"
   }).addTo(map);
   
-  // Load status data first
+  // SEARCH BAR
+  const searchControl = new GeoSearch.GeoSearchControl({
+    provider: new GeoSearch.OpenStreetMapProvider({params: {countrycodes: 'bd'}}),
+    style: 'bar', position: 'topleft', autoClose: true, keepResult: true
+  });
+  map.addControl(searchControl);
+  
   const statusMap = await loadSheetData();
   
-  // Load your Upazila GeoJSON
+  // UPAZILA LAYER
   const geoRes = await fetch("./public/bdupazila.json");
   const geojson = await geoRes.json();
-  
-  // UPAZILA LAYER (keep reference name upazilaLayer)
   const upazilaLayer = L.geoJSON(geojson, {
-    style: feature => {
-      const props = feature.properties;
-      const upcode = props[GEO_UPCODE_KEY];
+    style: f => {
+      const upcode = f.properties[GEO_UPCODE_KEY];
       const rec = statusMap.get(upcode);
-      const color = statusColor(rec?.status);
-      
-      return {
-        color: "#444",
-        weight: 0.8,
-        fillColor: color,
-        fillOpacity: 0.8,
-        opacity: 0.9
-      };
+      return {color:"#444", weight:0.6, fillColor:statusColor(rec?.status), fillOpacity:0.75};
     },
-    onEachFeature: (feature, layer) => {
-      const props = feature.properties;
+    onEachFeature: (f, layer) => {
+      const props = f.properties;
       const upcode = props[GEO_UPCODE_KEY];
       const rec = statusMap.get(upcode);
-      
       const status = rec?.status || "No data";
-      const color = statusColor(status);
-      
-      const popupHtml = `
-        <div style="min-width: 200px;">
-          <h3 style="margin: 0 0 8px 0; color: ${color};">${props[GEO_UPAZILA_KEY]}</h3>
+      layer.bindPopup(`
+        <div style="min-width:220px;">
+          <h3 style="margin:0 0 8px 0; color:${statusColor(status)};">${props[GEO_UPAZILA_KEY]}</h3>
           <strong>District:</strong> ${props[GEO_DISTRICT_KEY]}<br/>
           <strong>Division:</strong> ${props[GEO_DIVISION_KEY]}<br/>
-          <strong>Status:</strong> <span style="color: ${color}; font-weight: bold;">${status}</span><br/>
-          <strong>Area:</strong> ${props.area_sqkm?.toFixed(1)} km²<br/>
-          <strong>PCode:</strong> ${upcode}
+          <strong>Status:</strong> <span style="color:${statusColor(status)}; font-weight:bold;">${status}</span><br/>
+          <strong>Area:</strong> ${props.area_sqkm?.toFixed(1)} km²
         </div>
-      `;
-      
-      layer.bindPopup(popupHtml);
+      `);
     }
   }).addTo(map);
   
-  // DISTRICT BOUNDARIES OVERLAY
+  // DISTRICT BOUNDARIES
   try {
     const districtRes = await fetch("./public/bd-districts.json");
     const districts = await districtRes.json();
-    
-    const districtLayer = L.geoJSON(districts, {
-      style: {
-        color: "#2c3e50",
-        weight: 2.8,
-        opacity: 0.95,
-        fill: false,
-        dashArray: "4, 4"
-      },
-      onEachFeature: (feature, layer) => {
-        layer.bindPopup(`<h3>${feature.properties.adm2_name}</h3>`);
-      }
-    }).addTo(map);
-    
-    districtLayer.bringToFront(); // Districts over upazilas
-  } catch (err) {
-    console.warn("District boundaries not loaded:", err);
-  }
+    L.geoJSON(districts, {
+      style: {color:"#2c3e50", weight:2.5, opacity:0.9, fill:false, dashArray:"4,4"},
+      onEachFeature: (f, l) => l.bindPopup(`<h3>${f.properties.adm2_name}</h3>`)
+    }).addTo(map).bringToFront();
+  } catch(e) { console.warn("No district file:", e); }
   
-  // Fit map to upazilas (correct reference)
   map.fitBounds(upazilaLayer.getBounds());
   
-  // Status legend (updated colors/text)
-  const legend = L.control({ position: "bottomright" });
-  legend.onAdd = function () {
+  // LEGEND WITH STATS
+  const legend = L.control({position:"bottomright"});
+  legend.onAdd = () => {
     const div = L.DomUtil.create("div", "legend");
-    div.style.background = "white";
-    div.style.padding = "10px";
-    div.style.border = "1px solid #ccc";
-    div.style.fontSize = "13px";
-    div.innerHTML = `
-      <div style="margin-bottom: 5px;"><span style="display:inline-block;width:14px;height:14px;background:#2ecc71;margin-right:6px;"></span>Done</div>
-      <div style="margin-bottom: 5px;"><span style="display:inline-block;width:14px;height:14px;background:#f1c40f;margin-right:6px;"></span>Ongoing</div>
-      <div style="margin-bottom: 5px;"><span style="display:inline-block;width:14px;height:14px;background:#e74c3c;margin-right:6px;"></span>ToDo/Pending</div>
-      <div><span style="display:inline-block;width:14px;height:14px;background:#e8ecef;margin-right:6px;"></span>No data</div>
-    `;
+    window.legendDiv = div;
     return div;
   };
   legend.addTo(map);
   
-  // Auto-refresh every 3 minutes (you can later also refresh upazilaLayer here)
-  setInterval(async () => {
-    console.log("🔄 Refreshing data...");
-    const newStatusMap = await loadSheetData();
-    // TODO later: re-style upazilaLayer using newStatusMap if needed
-  }, 3 * 60 * 1000);
+  // Auto-refresh
+  setInterval(loadSheetData, 3*60*1000);
 }
 
-// Initialize when page loads
-initMap().catch(err => {
-  console.error("Map init error:", err);
-  document.body.innerHTML += "<p style='color:red;'>Error loading map. Check console.</p>";
-});
+initMap().catch(console.error);
