@@ -101,7 +101,6 @@ function updateStatsDisplay(stats, mapSize) {
 }
 
 // Update initMap to refresh stats periodically
-// Update initMap to refresh stats periodically
 async function initMap() {
   const map = L.map("map").setView([23.7, 90.4], 7); // Bangladesh center
   
@@ -193,7 +192,7 @@ async function initMap() {
     div.innerHTML = `
       <div style="margin-bottom: 5px;"><span style="display:inline-block;width:14px;height:14px;background:#2ecc71;margin-right:6px;"></span>Done</div>
       <div style="margin-bottom: 5px;"><span style="display:inline-block;width:14px;height:14px;background:#f1c40f;margin-right:6px;"></span>Ongoing</div>
-      <div style="margin-bottom: 5px;"><span style="display:inline-block;width:14px;height:14px;background:#bdc3c7;margin-right:6px;"></span>ToDo/Pending</div>
+      <div style="margin-bottom: 5px;"><span style="display:inline-block;width:14px;height:14px;background:#e74c3c;margin-right:6px;"></span>ToDo/Pending</div>
       <div><span style="display:inline-block;width:14px;height:14px;background:#e8ecef;margin-right:6px;"></span>No data</div>
     `;
     return div;
