@@ -1,5 +1,5 @@
 // ================================================================
-//  Bangladesh Land Zoning Dashboard
+//  Bangladesh Land Zoning Dashboard by Suman
 //  Features: Live Google Sheets | Search+Zoom | Stats Legend
 //            Division Filter Table | District Boundaries
 //            Mobile Bottom Sheet | Auto-Refresh
@@ -152,9 +152,9 @@ function legendInnerHTML(stats) {
   const pct = ((stats.done + stats.ongoing) / 495 * 100).toFixed(1);
   return `
     <div style="text-align:center;padding-bottom:12px;border-bottom:2px solid #ecf0f1;margin-bottom:12px;">
-      <div style="font-size:13px;font-weight:700;color:#2c3e50;margin-bottom:4px;">📊 Zoning Progress</div>
+      <div style="font-size:13px;font-weight:700;color:#2c3e50;margin-bottom:4px;">📊 Zoning, Report Progress</div>
       <div style="font-size:28px;font-weight:900;color:#27ae60;">${pct}%</div>
-      <div style="font-size:11px;color:#aaa;">${stats.total} / 495 upazilas</div>
+      <div style="font-size:11px;color:#aaa;">${stats.total} / 495 UZ+12 CP</div>
     </div>
     <div style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">
       <span><span style="display:inline-block;width:16px;height:16px;background:#2ecc71;
