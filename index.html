@@ -9,22 +9,148 @@
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; }
     #map { width: 100%; height: 100vh; }
+
+    /* ── LEGEND: desktop normal, mobile = bottom sheet ── */
+    #legendBox {
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+    }
+
+    /* ── MOBILE bottom sheet legend ── */
+    #mobileLegendSheet {
+      display: none;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: white;
+      border-radius: 18px 18px 0 0;
+      box-shadow: 0 -6px 30px rgba(0,0,0,0.25);
+      z-index: 1500;
+      padding: 0 18px 18px;
+      max-height: 75vh;
+      overflow-y: auto;
+      transition: transform 0.3s ease;
+    }
+    #mobileLegendSheet .drag-handle {
+      width: 40px; height: 5px;
+      background: #ddd; border-radius: 3px;
+      margin: 12px auto 14px;
+    }
+    #mobileLegendToggle {
+      display: none;
+      position: fixed;
+      bottom: 18px; right: 18px;
+      background: #27ae60;
+      color: white; border: none;
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      font-size: 22px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+      cursor: pointer;
+      z-index: 1600;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ── MOBILE search: compact icon → expand ── */
+    #mobileSearchBtn {
+      display: none;
+      position: fixed;
+      top: 14px; left: 14px;
+      background: white;
+      border: 2px solid rgba(0,0,0,0.15);
+      border-radius: 50%;
+      width: 44px; height: 44px;
+      font-size: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      cursor: pointer;
+      z-index: 1600;
+      align-items: center;
+      justify-content: center;
+    }
+    #mobileSearchPanel {
+      display: none;
+      position: fixed;
+      top: 14px; left: 14px; right: 14px;
+      background: white;
+      border-radius: 10px;
+      padding: 10px 14px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+      z-index: 1700;
+    }
+    #mobileSearchPanel input {
+      width: 100%; border: none; outline: none;
+      font-size: 15px; padding: 4px 0;
+    }
+    #mobileSearchPanel .ms-header {
+      display: flex; align-items: center; gap: 8px;
+      border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 6px;
+    }
+    #mobileSearchResults {
+      max-height: 200px; overflow-y: auto;
+    }
+    #mobileSearchResults div {
+      padding: 9px 4px; border-bottom: 1px solid #f5f5f5;
+      cursor: pointer; font-size: 13px;
+    }
+    #mobileSearchResults div:hover { background: #f0f8ff; }
+
+    /* ── Table modal ── */
+    #dataTableContainer {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.85);
+      z-index: 9999; display: none; overflow: auto; padding: 20px;
+    }
+    #dataTableInner {
+      background: white; border-radius: 12px;
+      max-width: 950px; margin: auto;
+      padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+
+    /* ── Responsive breakpoint ── */
+    @media (max-width: 768px) {
+      /* Hide Leaflet bottom-right legend on mobile */
+      .leaflet-bottom.leaflet-right { display: none !important; }
+      /* Hide desktop search bar on mobile */
+      .leaflet-top.leaflet-left .leaflet-control:first-child { display: none !important; }
+      /* Show mobile elements */
+      #mobileLegendSheet,
+      #mobileLegendToggle,
+      #mobileSearchBtn { display: flex; }
+    }
   </style>
 </head>
 <body>
   <div id="map"></div>
 
+  <!-- Mobile: FAB legend toggle button -->
+  <button id="mobileLegendToggle" onclick="toggleMobileLegend()">📊</button>
+
+  <!-- Mobile: Bottom sheet legend -->
+  <div id="mobileLegendSheet">
+    <div class="drag-handle"></div>
+    <div id="mobileLegendContent"></div>
+  </div>
+
+  <!-- Mobile: Search icon button -->
+  <button id="mobileSearchBtn" onclick="toggleMobileSearch()">🔍</button>
+
+  <!-- Mobile: Search panel -->
+  <div id="mobileSearchPanel">
+    <div class="ms-header">
+      <span style="font-size:18px;">🔍</span>
+      <input id="mobileSearchInput" type="text" placeholder="Search upazila..." />
+      <span onclick="toggleMobileSearch()" style="cursor:pointer;color:#aaa;font-size:18px;margin-left:auto;">✕</span>
+    </div>
+    <div id="mobileSearchResults"></div>
+  </div>
+
   <!-- Table Modal -->
-  <div id="dataTableContainer" style="position:fixed;top:0;left:0;width:100%;height:100%;
-    background:rgba(0,0,0,0.85);z-index:9999;display:none;overflow:auto;padding:30px;">
-    <div style="background:white;border-radius:12px;max-width:950px;margin:auto;
-      padding:28px;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+  <div id="dataTableContainer">
+    <div id="dataTableInner">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-        <h2 id="tableTitle" style="margin:0;color:#2c3e50;font-size:20px;"></h2>
+        <h2 id="tableTitle" style="margin:0;color:#2c3e50;font-size:18px;"></h2>
         <button onclick="toggleTable()" style="background:#e74c3c;color:white;border:none;
-          padding:10px 20px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;">
-          ✕ Close
-        </button>
+          padding:10px 20px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;">✕ Close</button>
       </div>
       <div id="statusTable"></div>
     </div>

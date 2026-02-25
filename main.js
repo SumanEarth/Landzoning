@@ -1,17 +1,15 @@
 // ================================================================
 //  Bangladesh Land Zoning Dashboard
 //  Features: Live Google Sheets | Search+Zoom | Stats Legend
-//            Division Filter Table | District Boundaries | Auto-Refresh
+//            Division Filter Table | District Boundaries
+//            Mobile Bottom Sheet | Auto-Refresh
 // ================================================================
 
 // ── CONFIG ───────────────────────────────────────────────────────
 const SHEET_ID  = "1xRA1Padw-hKv-ZprqqWH6KCtCE-PvtJtZeWfwfeihYw";
 const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=upazilas`;
 
-// Google Sheet column indices (0-based): FID, Country, Division, District, Upazila, Status, upazila_pcode
 const COL_DIVISION = 2, COL_DISTRICT = 3, COL_UPAZILA = 4, COL_STATUS = 5, COL_UPCODE = 6;
-
-// GeoJSON property keys
 const GEO_UPCODE   = "adm3_pcode";
 const GEO_UPAZILA  = "adm3_name";
 const GEO_DISTRICT = "adm2_name";
@@ -21,23 +19,75 @@ const GEO_DIVISION = "adm1_name";
 function norm(str) {
   return (str || "").toString().trim().toLowerCase();
 }
-
 function statusColor(status) {
   if (!status) return "#e8ecef";
   const s = norm(status);
-  if (s.includes("done") || s.includes("complete"))          return "#2ecc71"; // green
-  if (s.includes("ongoing") || s.includes("progress"))       return "#f1c40f"; // yellow
-  if (s.includes("todo") || s.includes("pending") || s.includes("to do")) return "#bdc3c7"; // calm gray
-  return "#e8ecef"; // light gray
+  if (s.includes("done") || s.includes("complete"))                      return "#2ecc71";
+  if (s.includes("ongoing") || s.includes("progress"))                   return "#f1c40f";
+  if (s.includes("todo") || s.includes("pending") || s.includes("to do")) return "#bdc3c7";
+  return "#e8ecef";
 }
 
 // ── GLOBAL STATE ─────────────────────────────────────────────────
 let doneList = [], ongoingList = [], todoList = [];
+let upazilaIndex = []; // for mobile search
 
-// ── TABLE MODAL: must be on window for onclick HTML calls ─────────
+// ── MOBILE: legend toggle ─────────────────────────────────────────
+window.toggleMobileLegend = function () {
+  const sheet = document.getElementById("mobileLegendSheet");
+  const btn   = document.getElementById("mobileLegendToggle");
+  const open  = sheet.style.transform !== "translateY(0px)";
+  sheet.style.transform = open ? "translateY(0px)" : "translateY(105%)";
+  sheet.style.display   = "block";
+  btn.textContent = open ? "✕" : "📊";
+  // Sync mobile content from desktop legend
+  const mc = document.getElementById("mobileLegendContent");
+  if (mc && window.legendDiv) mc.innerHTML = window.legendDiv.innerHTML;
+};
+
+// ── MOBILE: search toggle ─────────────────────────────────────────
+window.toggleMobileSearch = function () {
+  const panel = document.getElementById("mobileSearchPanel");
+  const open  = panel.style.display === "block";
+  panel.style.display = open ? "none" : "block";
+  if (!open) document.getElementById("mobileSearchInput").focus();
+};
+
+// ── MOBILE: wire search input ────────────────────────────────────
+function initMobileSearch() {
+  const input   = document.getElementById("mobileSearchInput");
+  const results = document.getElementById("mobileSearchResults");
+  if (!input) return;
+  input.addEventListener("input", e => {
+    const term = e.target.value.trim().toLowerCase();
+    results.innerHTML = "";
+    if (term.length < 2) return;
+    upazilaIndex.filter(u => u.name.toLowerCase().includes(term))
+      .slice(0, 10)
+      .forEach(u => {
+        const div = document.createElement("div");
+        div.innerHTML = `<strong>${u.name}</strong>
+          <span style="color:#aaa;font-size:11px;margin-left:6px;">${u.district}, ${u.division}</span>`;
+        div.onclick = () => {
+          u.mapRef.fitBounds(u.bounds, { padding: [50, 50], maxZoom: 12 });
+          input.value = u.name;
+          results.innerHTML = "";
+          document.getElementById("mobileSearchPanel").style.display = "none";
+          document.getElementById("mobileSearchBtn").textContent = "🔍";
+        };
+        results.appendChild(div);
+      });
+  });
+}
+
+// ── TABLE MODAL ───────────────────────────────────────────────────
 window.toggleTable = function () {
   const el = document.getElementById("dataTableContainer");
   el.style.display = el.style.display === "none" ? "block" : "none";
+  // Hide mobile sheet if open
+  const sheet = document.getElementById("mobileLegendSheet");
+  if (sheet) { sheet.style.transform = "translateY(105%)"; }
+  document.getElementById("mobileLegendToggle").textContent = "📊";
 };
 
 window.filterTableByDivision = function () {
@@ -57,13 +107,10 @@ window.filterTableByDivision = function () {
 window.showStatusTable = function (type) {
   const listMap  = { done: doneList, ongoing: ongoingList, todo: todoList };
   const titleMap = { done: "✅ Done Upazilas", ongoing: "⏳ Ongoing Upazilas", todo: "🔄 ToDo Upazilas" };
-  const bgMap    = { done: "#d4edda",          ongoing: "#fff3cd",             todo: "#f8f9fa" };
-
-  const list = listMap[type] || [];
+  const bgMap    = { done: "#d4edda", ongoing: "#fff3cd", todo: "#f8f9fa" };
+  const list     = listMap[type] || [];
   document.getElementById("tableTitle").textContent = `${titleMap[type]} (${list.length})`;
-
   const divisions = [...new Set(list.map(i => i.division).filter(Boolean))].sort();
-
   const rows = list.map((item, idx) => `
     <tr data-division="${item.division || ""}"
         style="background:${idx % 2 === 0 ? bgMap[type] : "white"};">
@@ -73,7 +120,6 @@ window.showStatusTable = function (type) {
       <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;
           color:${statusColor(item.status)};font-weight:700;">${item.status || ""}</td>
     </tr>`).join("");
-
   document.getElementById("statusTable").innerHTML = `
     <div style="margin-bottom:15px;display:flex;align-items:center;flex-wrap:wrap;gap:10px;">
       <label style="font-weight:700;color:#2c3e50;">Filter by Division:</label>
@@ -97,57 +143,48 @@ window.showStatusTable = function (type) {
         <tbody id="tableBody">${rows}</tbody>
       </table>
     </div>`;
-
   window.toggleTable();
   window.filterTableByDivision();
 };
 
-// ── LEGEND UPDATER ────────────────────────────────────────────────
-function updateStatsDisplay(stats) {
-  if (!window.legendDiv) return;
+// ── LEGEND CONTENT (shared by desktop + mobile) ───────────────────
+function legendInnerHTML(stats) {
   const pct = ((stats.done + stats.ongoing) / 495 * 100).toFixed(1);
-
-  window.legendDiv.innerHTML = `
+  return `
     <div style="text-align:center;padding-bottom:12px;border-bottom:2px solid #ecf0f1;margin-bottom:12px;">
       <div style="font-size:13px;font-weight:700;color:#2c3e50;margin-bottom:4px;">📊 Zoning Progress</div>
-      <div style="font-size:26px;font-weight:900;color:#27ae60;">${pct}%</div>
+      <div style="font-size:28px;font-weight:900;color:#27ae60;">${pct}%</div>
       <div style="font-size:11px;color:#aaa;">${stats.total} / 495 upazilas</div>
     </div>
     <div style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">
-      <span>
-        <span style="display:inline-block;width:16px;height:16px;background:#2ecc71;
-          border-radius:3px;margin-right:8px;vertical-align:middle;"></span>Done
-      </span>
+      <span><span style="display:inline-block;width:16px;height:16px;background:#2ecc71;
+        border-radius:3px;margin-right:8px;vertical-align:middle;"></span>Done</span>
       <strong>${stats.done}</strong>
     </div>
     <div style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">
-      <span>
-        <span style="display:inline-block;width:16px;height:16px;background:#f1c40f;
-          border-radius:3px;margin-right:8px;vertical-align:middle;"></span>Ongoing
-      </span>
+      <span><span style="display:inline-block;width:16px;height:16px;background:#f1c40f;
+        border-radius:3px;margin-right:8px;vertical-align:middle;"></span>Ongoing</span>
       <strong>${stats.ongoing}</strong>
     </div>
     <div style="margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;">
-      <span>
-        <span style="display:inline-block;width:16px;height:16px;background:#bdc3c7;
-          border-radius:3px;margin-right:8px;vertical-align:middle;"></span>ToDo
-      </span>
+      <span><span style="display:inline-block;width:16px;height:16px;background:#bdc3c7;
+        border-radius:3px;margin-right:8px;vertical-align:middle;"></span>ToDo</span>
       <strong>${stats.todo}</strong>
     </div>
     <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">
       <button onclick="showStatusTable('done')"
-        style="background:#2ecc71;color:white;border:none;padding:9px;border-radius:6px;
-          cursor:pointer;font-size:12px;font-weight:600;">
+        style="background:#2ecc71;color:white;border:none;padding:10px;border-radius:8px;
+          cursor:pointer;font-size:13px;font-weight:700;">
         📋 View Done (${stats.done})
       </button>
       <button onclick="showStatusTable('ongoing')"
-        style="background:#f1c40f;color:#333;border:none;padding:9px;border-radius:6px;
-          cursor:pointer;font-size:12px;font-weight:600;">
+        style="background:#f1c40f;color:#333;border:none;padding:10px;border-radius:8px;
+          cursor:pointer;font-size:13px;font-weight:700;">
         📋 View Ongoing (${stats.ongoing})
       </button>
       <button onclick="showStatusTable('todo')"
-        style="background:#bdc3c7;color:#333;border:none;padding:9px;border-radius:6px;
-          cursor:pointer;font-size:12px;font-weight:600;">
+        style="background:#bdc3c7;color:#333;border:none;padding:10px;border-radius:8px;
+          cursor:pointer;font-size:13px;font-weight:700;">
         📋 View ToDo (${stats.todo})
       </button>
     </div>
@@ -155,6 +192,14 @@ function updateStatsDisplay(stats) {
       border-top:1px solid #f0f0f0;padding-top:8px;">
       🔄 ${new Date().toLocaleTimeString()}
     </div>`;
+}
+
+function updateStatsDisplay(stats) {
+  // Update desktop legend
+  if (window.legendDiv) window.legendDiv.innerHTML = legendInnerHTML(stats);
+  // Sync mobile bottom sheet if already open
+  const mc = document.getElementById("mobileLegendContent");
+  if (mc && mc.innerHTML !== "") mc.innerHTML = legendInnerHTML(stats);
 }
 
 // ── GOOGLE SHEET LOADER ───────────────────────────────────────────
@@ -167,7 +212,6 @@ async function loadSheetData() {
     const statusMap = new Map();
     const stats   = { done: 0, ongoing: 0, todo: 0, total: 0, nodata: 0 };
     doneList = []; ongoingList = []; todoList = [];
-
     rows.forEach(row => {
       const upcode   = row.c[COL_UPCODE]?.v;
       const status   = row.c[COL_STATUS]?.v;
@@ -175,23 +219,15 @@ async function loadSheetData() {
       const district = row.c[COL_DISTRICT]?.v;
       const division = row.c[COL_DIVISION]?.v;
       if (!upcode || !upazila) return;
-
       stats.total++;
       const entry = { upcode, upazila, district, division, status };
       statusMap.set(String(upcode), entry);
-
       const s = norm(status);
-      if (s.includes("done") || s.includes("complete")) {
-        stats.done++;   doneList.push(entry);
-      } else if (s.includes("ongoing") || s.includes("progress")) {
-        stats.ongoing++; ongoingList.push(entry);
-      } else if (s.includes("todo") || s.includes("pending") || s.includes("to do")) {
-        stats.todo++;   todoList.push(entry);
-      } else {
-        stats.nodata++;
-      }
+      if      (s.includes("done") || s.includes("complete"))                       { stats.done++;    doneList.push(entry); }
+      else if (s.includes("ongoing") || s.includes("progress"))                    { stats.ongoing++; ongoingList.push(entry); }
+      else if (s.includes("todo") || s.includes("pending") || s.includes("to do")) { stats.todo++;    todoList.push(entry); }
+      else                                                                           { stats.nodata++; }
     });
-
     updateStatsDisplay(stats);
     console.log(`✅ Sheet: ${statusMap.size} upazilas`, stats);
     return statusMap;
@@ -211,29 +247,24 @@ async function initMap() {
     attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a> | Land Zoning Dashboard'
   }).addTo(map);
 
-  // ── STEP 1: Legend first so window.legendDiv exists before loadSheetData ──
+  // Desktop legend
   const legend = L.control({ position: "bottomright" });
   legend.onAdd = function () {
     const div = L.DomUtil.create("div", "info legend");
-    div.style.cssText = `
-      background:white; padding:18px; border-radius:10px;
-      box-shadow:0 4px 20px rgba(0,0,0,0.22);
-      min-width:215px; font-family:Arial,sans-serif; font-size:13px;`;
+    div.style.cssText = `background:white;padding:18px;border-radius:10px;
+      box-shadow:0 4px 20px rgba(0,0,0,0.22);min-width:215px;font-family:Arial,sans-serif;font-size:13px;`;
     window.legendDiv = div;
     return div;
   };
   legend.addTo(map);
-  // Show loading state immediately
   updateStatsDisplay({ done: 0, ongoing: 0, todo: 0, total: 0, nodata: 0 });
 
-  // ── STEP 2: Load live sheet data ──────────────────────────────────
   const statusMap = await loadSheetData();
 
-  // ── STEP 3: Load upazila GeoJSON ──────────────────────────────────
   const geoRes  = await fetch("./public/bdupazila.json");
   const geojson = await geoRes.json();
 
-  // ── STEP 4: Custom search control ────────────────────────────────
+  // Desktop search control
   const searchCtrl = L.control({ position: "topleft" });
   searchCtrl.onAdd = function () {
     const wrap = L.DomUtil.create("div");
@@ -250,37 +281,27 @@ async function initMap() {
       <div id="searchDropdown" style="background:white;max-height:220px;overflow-y:auto;
         display:none;box-shadow:0 6px 18px rgba(0,0,0,0.18);border-radius:0 0 8px 8px;
         border:2px solid rgba(0,0,0,0.1);border-top:none;"></div>`;
-
     L.DomEvent.disableClickPropagation(wrap);
     L.DomEvent.disableScrollPropagation(wrap);
 
-    // Build upazila index from GeoJSON
-    const index = geojson.features
-      .map(f => ({
-        name:     f.properties[GEO_UPAZILA],
-        district: f.properties[GEO_DISTRICT],
-        division: f.properties[GEO_DIVISION],
-        bounds:   L.geoJSON(f).getBounds()
-      }))
-      .filter(u => u.name);
+    // Build shared index
+    upazilaIndex = geojson.features.map(f => ({
+      name:     f.properties[GEO_UPAZILA],
+      district: f.properties[GEO_DISTRICT],
+      division: f.properties[GEO_DIVISION],
+      bounds:   L.geoJSON(f).getBounds(),
+      mapRef:   map
+    })).filter(u => u.name);
 
     const input    = wrap.querySelector("#upazilaSearch");
     const dropdown = wrap.querySelector("#searchDropdown");
-    const clearBtn = wrap.querySelector("#srchClear");
-
-    clearBtn.onclick = () => {
-      input.value = "";
-      dropdown.style.display = "none";
-    };
+    wrap.querySelector("#srchClear").onclick = () => { input.value = ""; dropdown.style.display = "none"; };
 
     input.addEventListener("input", e => {
       const term = e.target.value.trim().toLowerCase();
-      dropdown.innerHTML = "";
-      dropdown.style.display = "none";
+      dropdown.innerHTML = ""; dropdown.style.display = "none";
       if (term.length < 2) return;
-
-      const hits = index.filter(u => u.name.toLowerCase().includes(term)).slice(0, 10);
-
+      const hits = upazilaIndex.filter(u => u.name.toLowerCase().includes(term)).slice(0, 10);
       if (!hits.length) {
         dropdown.innerHTML = `<div style="padding:10px 14px;color:#999;font-size:12px;">No upazila found</div>`;
         dropdown.style.display = "block";
@@ -302,69 +323,56 @@ async function initMap() {
       });
       dropdown.style.display = "block";
     });
-
     document.addEventListener("click", e => {
       if (!wrap.contains(e.target)) dropdown.style.display = "none";
     });
-
     return wrap;
   };
   searchCtrl.addTo(map);
 
-  // ── STEP 5: Upazila choropleth layer ─────────────────────────────
+  // Wire mobile search (same index)
+  initMobileSearch();
+
+  // Set mapRef for mobile search after map exists
+  upazilaIndex.forEach(u => u.mapRef = map);
+
+  // Upazila layer
   const upazilaLayer = L.geoJSON(geojson, {
     style: f => {
       const rec = statusMap.get(String(f.properties[GEO_UPCODE]));
-      return {
-        color:       "#555",
-        weight:      0.6,
-        fillColor:   statusColor(rec?.status),
-        fillOpacity: 0.82
-      };
+      return { color: "#555", weight: 0.6, fillColor: statusColor(rec?.status), fillOpacity: 0.82 };
     },
     onEachFeature: (f, layer) => {
       const props  = f.properties;
       const rec    = statusMap.get(String(props[GEO_UPCODE]));
       const status = rec?.status || "No data";
       const color  = statusColor(status);
-
       layer.bindPopup(`
-        <div style="min-width:230px;font-family:Arial,sans-serif;">
-          <h3 style="margin:0 0 10px;color:${color};
-            border-bottom:3px solid ${color};padding-bottom:8px;">${props[GEO_UPAZILA]}</h3>
+        <div style="min-width:220px;font-family:Arial,sans-serif;">
+          <h3 style="margin:0 0 10px;color:${color};border-bottom:3px solid ${color};padding-bottom:8px;">
+            ${props[GEO_UPAZILA]}</h3>
           <table style="width:100%;font-size:13px;border-collapse:collapse;">
-            <tr>
-              <td style="padding:4px 0;color:#888;width:80px;">District</td>
-              <td style="font-weight:600;">${props[GEO_DISTRICT]}</td>
-            </tr>
-            <tr>
-              <td style="padding:4px 0;color:#888;">Division</td>
-              <td style="font-weight:600;">${props[GEO_DIVISION]}</td>
-            </tr>
-            <tr>
-              <td style="padding:4px 0;color:#888;">Status</td>
-              <td style="color:${color};font-weight:700;">${status}</td>
-            </tr>
-            <tr>
-              <td style="padding:4px 0;color:#888;">Area</td>
-              <td>${props.area_sqkm?.toFixed(1) ?? "—"} km²</td>
-            </tr>
+            <tr><td style="padding:4px 0;color:#888;width:80px;">District</td>
+              <td style="font-weight:600;">${props[GEO_DISTRICT]}</td></tr>
+            <tr><td style="padding:4px 0;color:#888;">Division</td>
+              <td style="font-weight:600;">${props[GEO_DIVISION]}</td></tr>
+            <tr><td style="padding:4px 0;color:#888;">Status</td>
+              <td style="color:${color};font-weight:700;">${status}</td></tr>
+            <tr><td style="padding:4px 0;color:#888;">Area</td>
+              <td>${props.area_sqkm?.toFixed(1) ?? "—"} km²</td></tr>
           </table>
         </div>`);
-
       layer.on("mouseover", function () {
         this.setStyle({ weight: 2.5, color: "#2c3e50", fillOpacity: 0.95 });
         this.bringToFront();
       });
-      layer.on("mouseout", function () {
-        upazilaLayer.resetStyle(this);
-      });
+      layer.on("mouseout", function () { upazilaLayer.resetStyle(this); });
     }
   }).addTo(map);
 
-  // ── STEP 6: District boundary overlay ────────────────────────────
+  // District boundaries
   try {
-    const dRes      = await fetch("./public/bd-districts.json");
+    const dRes = await fetch("./public/bd-districts.json");
     const districts = await dRes.json();
     L.geoJSON(districts, {
       style: { color: "#2c3e50", weight: 2.5, opacity: 0.9, fill: false, dashArray: "5,4" },
@@ -374,18 +382,18 @@ async function initMap() {
     console.warn("bd-districts.json not found — skipping district overlay");
   }
 
-  // ── STEP 7: Fit Bangladesh ────────────────────────────────────────
   map.fitBounds(upazilaLayer.getBounds());
 
-  // ── STEP 8: Auto-refresh every 3 minutes ─────────────────────────
+  // Initial mobile sheet hidden off-screen
+  const sheet = document.getElementById("mobileLegendSheet");
+  if (sheet) sheet.style.transform = "translateY(105%)";
+
+  // Auto-refresh every 3 minutes
   setInterval(loadSheetData, 3 * 60 * 1000);
 }
 
 // ── START ─────────────────────────────────────────────────────────
 initMap().catch(err => {
   console.error("Map error:", err);
-  document.body.innerHTML += `
-    <p style="color:red;padding:24px;font-family:Arial;font-size:16px;">
-      ⚠️ Map Error: ${err.message}
-    </p>`;
+  document.body.innerHTML += `<p style="color:red;padding:24px;font-size:16px;">⚠️ ${err.message}</p>`;
 });
