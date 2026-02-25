@@ -154,6 +154,35 @@ async function initMap() {
       layer.bindPopup(popupHtml);
     }
   }).addTo(map);
+
+  // NEW: DISTRICT BOUNDARIES OVERLAY
+  try {
+    const districtRes = await fetch("./public/bd-districts.json");
+    const districts = await districtRes.json();
+    
+    const districtLayer = L.geoJSON(districts, {
+      style: {
+        color: "#2c3e50",
+        weight: 2.8,
+        opacity: 0.95,
+        fill: false,
+        dashArray: "4, 4"
+      },
+      onEachFeature: (feature, layer) => {
+        layer.bindPopup(`<h3>${feature.properties.adm2_name}</h3>`);
+      }
+    }).addTo(map);
+    
+    districtLayer.bringToFront(); // Districts over upazilas
+  } catch (err) {
+    console.warn("District boundaries not loaded:", err);
+  }
+  
+  map.fitBounds(upazilaLayer.getBounds());
+  
+  // Legend (existing)
+  // Auto-refresh (existing)
+
   
   // Auto-fit to Bangladesh
   map.fitBounds(layer.getBounds());
