@@ -2,144 +2,168 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>BD Land Zoning</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BD Land Zoning Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; }
+    html, body { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', Arial, sans-serif; }
     #map { width: 100%; height: 100vh; }
 
-    /* ── LEGEND: desktop normal, mobile = bottom sheet ── */
-    #legendBox {
-      font-family: Arial, sans-serif;
-      font-size: 13px;
+    /* ── Popup polish ── */
+    .zoning-popup .leaflet-popup-content-wrapper {
+      border-radius: 12px !important;
+      box-shadow: 0 8px 30px rgba(0,0,0,.22) !important;
+      padding: 0 !important;
     }
+    .zoning-popup .leaflet-popup-content {
+      margin: 14px 15px !important;
+    }
+    .zoning-popup .leaflet-popup-tip { background: white !important; }
 
-    /* ── MOBILE bottom sheet legend ── */
+    /* ── Legend scrollbar ── */
+    .info.legend::-webkit-scrollbar { width: 4px; }
+    .info.legend::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
+
+    /* ── Mobile bottom-sheet legend ── */
     #mobileLegendSheet {
       display: none;
       position: fixed;
       bottom: 0; left: 0; right: 0;
       background: white;
-      border-radius: 18px 18px 0 0;
-      box-shadow: 0 -6px 30px rgba(0,0,0,0.25);
+      border-radius: 20px 20px 0 0;
+      box-shadow: 0 -6px 30px rgba(0,0,0,.28);
       z-index: 1500;
-      padding: 0 18px 18px;
-      max-height: 75vh;
+      padding: 0 18px 24px;
+      max-height: 80vh;
       overflow-y: auto;
-      transition: transform 0.3s ease;
+      transition: transform 0.32s cubic-bezier(.4,0,.2,1);
     }
     #mobileLegendSheet .drag-handle {
       width: 40px; height: 5px;
       background: #ddd; border-radius: 3px;
-      margin: 12px auto 14px;
+      margin: 14px auto 16px;
     }
-    #mobileLegendToggle {
+    #mobileLegendSheet::-webkit-scrollbar { width: 3px; }
+    #mobileLegendSheet::-webkit-scrollbar-thumb { background: #eee; }
+
+    /* ── FAB buttons ── */
+    .fab {
       display: none;
       position: fixed;
-      bottom: 18px; right: 18px;
-      background: #27ae60;
-      color: white; border: none;
-      width: 52px; height: 52px;
+      border: none;
       border-radius: 50%;
-      font-size: 22px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
       cursor: pointer;
       z-index: 1600;
       align-items: center;
       justify-content: center;
+      box-shadow: 0 4px 18px rgba(0,0,0,.3);
+      transition: transform .15s, box-shadow .15s;
     }
+    .fab:active { transform: scale(.93); }
 
-    /* ── MOBILE search: compact icon → expand ── */
+    #mobileLegendToggle {
+      bottom: 22px; right: 18px;
+      background: linear-gradient(135deg, #27ae60, #2ecc71);
+      color: white;
+      width: 54px; height: 54px;
+      font-size: 22px;
+    }
     #mobileSearchBtn {
-      display: none;
-      position: fixed;
       top: 14px; left: 14px;
       background: white;
-      border: 2px solid rgba(0,0,0,0.15);
-      border-radius: 50%;
-      width: 44px; height: 44px;
+      border: 2px solid rgba(0,0,0,.13) !important;
+      width: 46px; height: 46px;
       font-size: 20px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-      cursor: pointer;
-      z-index: 1600;
-      align-items: center;
-      justify-content: center;
+      color: #555;
     }
+
+    /* ── Mobile search panel ── */
     #mobileSearchPanel {
       display: none;
       position: fixed;
       top: 14px; left: 14px; right: 14px;
       background: white;
-      border-radius: 10px;
+      border-radius: 12px;
       padding: 10px 14px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+      box-shadow: 0 6px 24px rgba(0,0,0,.28);
       z-index: 1700;
-    }
-    #mobileSearchPanel input {
-      width: 100%; border: none; outline: none;
-      font-size: 15px; padding: 4px 0;
     }
     #mobileSearchPanel .ms-header {
       display: flex; align-items: center; gap: 8px;
-      border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 6px;
+      border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 8px;
     }
-    #mobileSearchResults {
-      max-height: 200px; overflow-y: auto;
+    #mobileSearchPanel input {
+      width: 100%; border: none; outline: none;
+      font-size: 15px; padding: 3px 0; color: #2c3e50;
     }
+    #mobileSearchResults { max-height: 210px; overflow-y: auto; }
     #mobileSearchResults div {
-      padding: 9px 4px; border-bottom: 1px solid #f5f5f5;
-      cursor: pointer; font-size: 13px;
+      padding: 10px 4px; border-bottom: 1px solid #f5f5f5;
+      cursor: pointer; font-size: 13px; color: #2c3e50;
     }
-    #mobileSearchResults div:hover { background: #f0f8ff; }
+    #mobileSearchResults div:active { background: #f0f8ff; }
 
     /* ── Table modal ── */
     #dataTableContainer {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.85);
-      z-index: 9999; display: none; overflow: auto; padding: 20px;
+      background: rgba(0,0,0,.88);
+      z-index: 9999; display: none; overflow: auto;
+      padding: 16px;
+      -webkit-overflow-scrolling: touch;
     }
     #dataTableInner {
-      background: white; border-radius: 12px;
-      max-width: 950px; margin: auto;
-      padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      background: white; border-radius: 14px;
+      max-width: 980px; margin: auto;
+      padding: 22px; box-shadow: 0 24px 60px rgba(0,0,0,.5);
+    }
+    #dataTableInner select {
+      -webkit-appearance: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23666'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 28px !important;
     }
 
-    /* ── Responsive breakpoint ── */
+    /* ── Responsive ── */
     @media (max-width: 768px) {
-      /* Hide Leaflet bottom-right legend on mobile */
       .leaflet-bottom.leaflet-right { display: none !important; }
-      /* Hide desktop search bar on mobile */
       .leaflet-top.leaflet-left .leaflet-control:first-child { display: none !important; }
-      /* Show mobile elements */
-      #mobileLegendSheet,
-      #mobileLegendToggle,
-      #mobileSearchBtn { display: flex; }
+      .fab { display: flex !important; }
+      #mobileLegendSheet { display: flex !important; flex-direction: column; }
+
+      #dataTableInner { padding: 14px; border-radius: 10px; }
+      #dataTableInner h2 { font-size: 15px !important; }
+    }
+
+    @media (max-width: 480px) {
+      #dataTableContainer { padding: 8px; }
+      #dataTableInner { padding: 12px 10px; }
     }
   </style>
 </head>
 <body>
   <div id="map"></div>
 
-  <!-- Mobile: FAB legend toggle button -->
-  <button id="mobileLegendToggle" onclick="toggleMobileLegend()">📊</button>
+  <!-- FAB: legend toggle -->
+  <button id="mobileLegendToggle" class="fab" onclick="toggleMobileLegend()">📊</button>
 
-  <!-- Mobile: Bottom sheet legend -->
+  <!-- Mobile bottom-sheet legend -->
   <div id="mobileLegendSheet">
     <div class="drag-handle"></div>
     <div id="mobileLegendContent"></div>
   </div>
 
-  <!-- Mobile: Search icon button -->
-  <button id="mobileSearchBtn" onclick="toggleMobileSearch()">🔍</button>
+  <!-- FAB: search -->
+  <button id="mobileSearchBtn" class="fab" onclick="toggleMobileSearch()">🔍</button>
 
-  <!-- Mobile: Search panel -->
+  <!-- Mobile search panel -->
   <div id="mobileSearchPanel">
     <div class="ms-header">
       <span style="font-size:18px;">🔍</span>
-      <input id="mobileSearchInput" type="text" placeholder="Search upazila..." />
-      <span onclick="toggleMobileSearch()" style="cursor:pointer;color:#aaa;font-size:18px;margin-left:auto;">✕</span>
+      <input id="mobileSearchInput" type="text" placeholder="Search upazila…" autocomplete="off" />
+      <span onclick="toggleMobileSearch()" style="cursor:pointer;color:#bbb;font-size:18px;margin-left:auto;padding:0 2px;">✕</span>
     </div>
     <div id="mobileSearchResults"></div>
   </div>
@@ -147,10 +171,13 @@
   <!-- Table Modal -->
   <div id="dataTableContainer">
     <div id="dataTableInner">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-        <h2 id="tableTitle" style="margin:0;color:#2c3e50;font-size:18px;"></h2>
-        <button onclick="toggleTable()" style="background:#e74c3c;color:white;border:none;
-          padding:10px 20px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;">✕ Close</button>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;
+        margin-bottom:18px;gap:10px;flex-wrap:wrap;">
+        <h2 id="tableTitle" style="margin:0;color:#2c3e50;font-size:17px;"></h2>
+        <button onclick="toggleTable()"
+          style="background:#e74c3c;color:white;border:none;padding:9px 18px;
+            border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;
+            white-space:nowrap;flex-shrink:0;">✕ Close</button>
       </div>
       <div id="statusTable"></div>
     </div>
