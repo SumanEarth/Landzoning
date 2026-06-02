@@ -331,12 +331,28 @@ window.submitUpdate=async function(){
   btn.disabled=true;btn.textContent="⏳ Submitting…";
 
   try{
-    var res=await fetch(gasUrl,{
+    // Google Apps Script Web Apps often fail CORS preflight when
+    // Content-Type is application/json. Use text/plain so this stays
+    // a simple POST request and reaches doPost(e) correctly.
+    var cleanUrl=gasUrl.trim();
+    if(cleanUrl.indexOf("/dev")>-1){
+      showToast("⚠️ Use the /exec Web App URL, not /dev","error");
+      return;
+    }
+
+    var res=await fetch(cleanUrl,{
       method:"POST",
-      headers:{"Content-Type":"application/json"},
+      headers:{"Content-Type":"text/plain;charset=utf-8"},
       body:JSON.stringify(payload)
     });
-    var data=await res.json();
+
+    var raw=await res.text();
+    var data;
+    try{
+      data=JSON.parse(raw);
+    }catch(parseErr){
+      throw new Error("Invalid Apps Script response: "+raw.substring(0,120));
+    }
     if(data.status==="ok"){
       showToast("✅ "+selectedUpazila.upazila+" updated successfully!","success");
       // Update local cache
@@ -348,7 +364,8 @@ window.submitUpdate=async function(){
       showToast("❌ Error: "+(data.message||"Unknown error"),"error");
     }
   }catch(e){
-    showToast("❌ Network error — check URL","error");
+    console.error("Submit failed:",e);
+    showToast("❌ Network error — check Web App URL/deployment","error");
   } finally {
     btn.disabled=false;btn.textContent="📤 Submit Update";
   }
