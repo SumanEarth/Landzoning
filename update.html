@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>Zoning Status Updater</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+  <meta name="theme-color" content="#27ae60"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-title" content="Zoning Update"/>
+  <link rel="manifest" href="./update-manifest.json"/>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;min-height:100vh;}
+
+    /* ── HEADER ── */
+    .header{
+      background:linear-gradient(135deg,#27ae60,#2ecc71);
+      color:white;padding:16px 18px 14px;
+      position:sticky;top:0;z-index:100;
+      box-shadow:0 2px 12px rgba(0,0,0,.2);
+    }
+    .header h1{font-size:18px;font-weight:800;margin-bottom:2px;}
+    .header p{font-size:12px;opacity:.85;}
+
+    /* ── MAIN CARD ── */
+    .card{
+      background:white;border-radius:14px;margin:16px;
+      padding:20px;box-shadow:0 2px 14px rgba(0,0,0,.1);
+    }
+    .section-title{
+      font-size:11px;font-weight:700;color:#7f8c8d;
+      text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;
+    }
+
+    /* ── SEARCH ── */
+    .search-wrap{position:relative;margin-bottom:6px;}
+    .search-wrap input{
+      width:100%;padding:12px 16px 12px 40px;
+      border:2px solid #e0e0e0;border-radius:10px;
+      font-size:15px;outline:none;transition:border .2s;
+    }
+    .search-wrap input:focus{border-color:#27ae60;}
+    .search-icon{position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:16px;color:#aaa;}
+    #searchResults{
+      border:2px solid #e0e0e0;border-top:none;border-radius:0 0 10px 10px;
+      max-height:220px;overflow-y:auto;display:none;background:white;
+      box-shadow:0 6px 16px rgba(0,0,0,.1);
+    }
+    .result-item{
+      padding:11px 16px;cursor:pointer;border-bottom:1px solid #f5f5f5;
+      font-size:14px;transition:background .1s;
+    }
+    .result-item:active{background:#f0faf5;}
+    .result-item .uz-name{font-weight:700;color:#2c3e50;}
+    .result-item .uz-sub{font-size:11px;color:#aaa;margin-top:1px;}
+
+    /* ── SELECTED UPAZILA CHIP ── */
+    #selectedChip{
+      display:none;background:#eafaf1;border:2px solid #a9dfbf;border-radius:10px;
+      padding:10px 14px;margin-top:8px;
+    }
+    #selectedChip .chip-name{font-weight:800;color:#27ae60;font-size:15px;}
+    #selectedChip .chip-sub{font-size:12px;color:#555;margin-top:2px;}
+
+    /* ── STATUS SELECTS ── */
+    .field-group{margin-bottom:16px;}
+    .field-group label{
+      display:block;font-size:13px;font-weight:700;color:#2c3e50;margin-bottom:6px;
+    }
+    .field-group label span{font-size:11px;font-weight:400;color:#888;margin-left:5px;}
+    .status-select{
+      width:100%;padding:12px 16px;border:2px solid #e0e0e0;border-radius:10px;
+      font-size:14px;outline:none;appearance:none;
+      background:white url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%23666'/></svg>") no-repeat right 14px center;
+      cursor:pointer;transition:border .2s;
+    }
+    .status-select:focus{border-color:#27ae60;}
+    .status-select.report:focus{border-color:#27ae60;}
+    .status-select.revision:focus{border-color:#2980b9;}
+    .status-select.workshop:focus{border-color:#8e44ad;}
+
+    textarea{
+      width:100%;padding:12px 16px;border:2px solid #e0e0e0;border-radius:10px;
+      font-size:14px;outline:none;resize:vertical;min-height:80px;
+      font-family:'Segoe UI',Arial,sans-serif;transition:border .2s;
+    }
+    textarea:focus{border-color:#27ae60;}
+
+    /* ── SUBMIT BUTTON ── */
+    #submitBtn{
+      width:100%;padding:15px;border:none;border-radius:12px;
+      background:linear-gradient(135deg,#27ae60,#2ecc71);
+      color:white;font-size:16px;font-weight:800;cursor:pointer;
+      box-shadow:0 4px 16px rgba(39,174,96,.4);
+      transition:transform .15s,box-shadow .15s;
+      margin-top:6px;
+    }
+    #submitBtn:active{transform:scale(.97);box-shadow:0 2px 8px rgba(39,174,96,.3);}
+    #submitBtn:disabled{background:#bdc3c7;box-shadow:none;cursor:not-allowed;}
+
+    /* ── TOAST ── */
+    #toast{
+      position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);
+      background:#2c3e50;color:white;padding:12px 22px;border-radius:10px;
+      font-size:13px;font-weight:600;z-index:9999;
+      transition:transform .3s cubic-bezier(.4,0,.2,1);
+      box-shadow:0 4px 18px rgba(0,0,0,.3);max-width:90vw;text-align:center;
+    }
+    #toast.show{transform:translateX(-50%) translateY(0);}
+    #toast.success{background:#27ae60;}
+    #toast.error{background:#e74c3c;}
+
+    /* ── SETUP NOTICE ── */
+    #setupNotice{
+      background:#fff8e1;border:2px solid #ffc107;border-radius:10px;
+      padding:14px 16px;margin:16px;font-size:12px;color:#795548;
+    }
+    #setupNotice strong{display:block;margin-bottom:5px;color:#e65100;font-size:13px;}
+    #setupNotice a{color:#1976d2;}
+
+    /* ── BACK LINK ── */
+    .back-link{
+      display:inline-flex;align-items:center;gap:6px;
+      color:rgba(255,255,255,.9);font-size:13px;font-weight:600;
+      text-decoration:none;margin-bottom:10px;
+    }
+    .back-link:active{opacity:.7;}
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <a href="./index.html" class="back-link">← Back to Map</a>
+  <h1>📝 Zoning Status Updater</h1>
+  <p>Update upazila report progress from your phone</p>
+</div>
+
+<!-- Setup notice — hide after configuring GAS URL -->
+<div id="setupNotice">
+  <strong>⚙️ One-time Setup Required</strong>
+  You need to set your Google Apps Script Web App URL below.
+  <a href="#" onclick="document.getElementById('gasSection').scrollIntoView({behavior:'smooth'})">See instructions ↓</a>
+</div>
+
+<div class="card">
+  <!-- GAS URL config -->
+  <div id="gasSection" class="field-group">
+    <label>🔗 Apps Script URL <span>(saved in browser)</span></label>
+    <input type="url" id="gasUrl" class="status-select"
+      placeholder="https://script.google.com/macros/s/YOUR_ID/exec"
+      style="padding:12px 16px;font-size:13px;"
+      oninput="saveGasUrl(this.value)"/>
+    <div style="font-size:11px;color:#aaa;margin-top:4px;">
+      Deploy your Google Apps Script → paste the web app URL here. It saves automatically.
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="section-title">1️⃣ Select Upazila</div>
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="searchInput" placeholder="Type upazila name…" autocomplete="off"
+      oninput="searchUpazila(this.value)"/>
+  </div>
+  <div id="searchResults"></div>
+  <div id="selectedChip">
+    <div class="chip-name" id="chipName"></div>
+    <div class="chip-sub" id="chipSub"></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="section-title">2️⃣ Update Status</div>
+
+  <div class="field-group">
+    <label>📋 Zoning Report Status</label>
+    <select id="reportStatus" class="status-select report">
+      <option value="">— No change —</option>
+      <option value="Done">✅ Done</option>
+      <option value="Ongoing">⏳ Ongoing</option>
+      <option value="ToDo">🔲 ToDo</option>
+    </select>
+  </div>
+
+  <div class="field-group">
+    <label>🔄 Revision Status</label>
+    <select id="revisionStatus" class="status-select revision">
+      <option value="">— No change —</option>
+      <option value="Done">✅ Done</option>
+      <option value="Ongoing">⏳ Ongoing</option>
+      <option value="ToDo">🔲 ToDo</option>
+      <option value="None">➖ None</option>
+    </select>
+  </div>
+
+  <div class="field-group">
+    <label>🏛 Workshop Status</label>
+    <select id="workshopStatus" class="status-select workshop">
+      <option value="">— No change —</option>
+      <option value="Done">✅ Done</option>
+      <option value="Ongoing">⏳ Ongoing</option>
+      <option value="ToDo">🔲 ToDo</option>
+    </select>
+  </div>
+
+  <div class="field-group">
+    <label>💬 Comment <span>(optional)</span></label>
+    <textarea id="commentField" placeholder="Add a note or comment about this upazila…"></textarea>
+  </div>
+
+  <button id="submitBtn" onclick="submitUpdate()">📤 Submit Update</button>
+</div>
+
+<!-- GAS Setup Instructions -->
+<div class="card" style="margin-bottom:30px;">
+  <div class="section-title">📖 How to Set Up (One Time)</div>
+  <ol style="padding-left:18px;font-size:13px;color:#555;line-height:2;">
+    <li>Open your Google Sheet → <strong>Extensions → Apps Script</strong></li>
+    <li>Paste the Apps Script code from <code>appsscript.gs</code></li>
+    <li>Click <strong>Deploy → New deployment → Web app</strong></li>
+    <li>Set <em>"Execute as: Me"</em> and <em>"Who has access: Anyone"</em></li>
+    <li>Copy the Web App URL → paste it in the field above</li>
+    <li>Done! This page now updates your Sheet directly 🎉</li>
+  </ol>
+</div>
+
+<div id="toast">Loading…</div>
+
+<script>
+var SHEET_ID="1xRA1Padw-hKv-ZprqqWH6KCtCE-PvtJtZeWfwfeihYw";
+var SHEET_URL="https://docs.google.com/spreadsheets/d/"+SHEET_ID+"/gviz/tq?tqx=out:json&sheet=upazilas";
+var allUpazilas=[];
+var selectedUpazila=null;
+
+// ── Load GAS URL from localStorage ─────────────────────────────
+window.onload=function(){
+  var saved=localStorage.getItem("zoning_gas_url")||"";
+  if(saved){
+    document.getElementById("gasUrl").value=saved;
+    document.getElementById("setupNotice").style.display="none";
+  }
+  loadUpazilas();
+};
+
+window.saveGasUrl=function(v){
+  localStorage.setItem("zoning_gas_url",v.trim());
+  if(v.trim()) document.getElementById("setupNotice").style.display="none";
+};
+
+// ── Load upazila list from Sheet ────────────────────────────────
+async function loadUpazilas(){
+  try{
+    var res=await fetch(SHEET_URL);
+    var text=await res.text();
+    var json=JSON.parse(text.substring(text.indexOf("{"),text.lastIndexOf("}")+1));
+    allUpazilas=(json.table.rows||[]).map(function(row){
+      return{
+        upazila:((row.c[4]||{}).v||"").toString(),
+        district:((row.c[3]||{}).v||"").toString(),
+        division:((row.c[2]||{}).v||"").toString(),
+        upcode:((row.c[9]||{}).v||"").toString(),
+        report:((row.c[5]||{}).v||"").toString(),
+        revision:((row.c[6]||{}).v||"").toString(),
+        workshop:((row.c[7]||{}).v||"").toString(),
+        comment:((row.c[8]||{}).v||"").toString(),
+      };
+    }).filter(function(u){return u.upazila;});
+  }catch(e){showToast("⚠️ Could not load upazila list","error");}
+}
+
+// ── Search ──────────────────────────────────────────────────────
+window.searchUpazila=function(term){
+  var container=document.getElementById("searchResults");
+  container.innerHTML="";
+  if(!term||term.length<2){container.style.display="none";return;}
+  var hits=allUpazilas.filter(function(u){return u.upazila.toLowerCase().includes(term.toLowerCase());}).slice(0,12);
+  if(!hits.length){
+    container.innerHTML='<div class="result-item" style="color:#aaa;">No upazila found</div>';
+    container.style.display="block";return;
+  }
+  hits.forEach(function(u){
+    var div=document.createElement("div");
+    div.className="result-item";
+    div.innerHTML='<div class="uz-name">'+u.upazila+'</div><div class="uz-sub">'+u.district+' &bull; '+u.division+'</div>';
+    div.onclick=function(){selectUpazila(u);};
+    container.appendChild(div);
+  });
+  container.style.display="block";
+};
+
+function selectUpazila(u){
+  selectedUpazila=u;
+  document.getElementById("searchInput").value=u.upazila;
+  document.getElementById("searchResults").style.display="none";
+  document.getElementById("chipName").textContent=u.upazila;
+  document.getElementById("chipSub").textContent=u.district+" • "+u.division+" | pcode: "+u.upcode;
+  document.getElementById("selectedChip").style.display="block";
+  // Pre-fill current values
+  setSelectIfValue("reportStatus",u.report);
+  setSelectIfValue("revisionStatus",u.revision);
+  setSelectIfValue("workshopStatus",u.workshop);
+  document.getElementById("commentField").value=u.comment||"";
+}
+
+function setSelectIfValue(id,val){
+  var sel=document.getElementById(id);
+  if(!sel||!val) return;
+  for(var i=0;i<sel.options.length;i++){
+    if(sel.options[i].value.toLowerCase()===val.toLowerCase()){sel.selectedIndex=i;break;}
+  }
+}
+
+// ── SUBMIT ──────────────────────────────────────────────────────
+window.submitUpdate=async function(){
+  if(!selectedUpazila){showToast("⚠️ Please select an upazila first","error");return;}
+  var gasUrl=localStorage.getItem("zoning_gas_url")||"";
+  if(!gasUrl){showToast("⚠️ Apps Script URL not configured","error");return;}
+
+  var payload={
+    upcode:selectedUpazila.upcode,
+    upazila:selectedUpazila.upazila,
+    report:document.getElementById("reportStatus").value,
+    revision:document.getElementById("revisionStatus").value,
+    workshop:document.getElementById("workshopStatus").value,
+    comment:document.getElementById("commentField").value.trim()
+  };
+
+  var btn=document.getElementById("submitBtn");
+  btn.disabled=true;btn.textContent="⏳ Submitting…";
+
+  try{
+    var res=await fetch(gasUrl,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(payload)
+    });
+    var data=await res.json();
+    if(data.status==="ok"){
+      showToast("✅ "+selectedUpazila.upazila+" updated successfully!","success");
+      // Update local cache
+      selectedUpazila.report=payload.report||selectedUpazila.report;
+      selectedUpazila.revision=payload.revision||selectedUpazila.revision;
+      selectedUpazila.workshop=payload.workshop||selectedUpazila.workshop;
+      selectedUpazila.comment=payload.comment;
+    } else {
+      showToast("❌ Error: "+(data.message||"Unknown error"),"error");
+    }
+  }catch(e){
+    showToast("❌ Network error — check URL","error");
+  } finally {
+    btn.disabled=false;btn.textContent="📤 Submit Update";
+  }
+};
+
+function showToast(msg,type){
+  var t=document.getElementById("toast");
+  t.textContent=msg;t.className="show "+(type||"");
+  setTimeout(function(){t.className=t.className.replace("show","").trim();},3000);
+}
+</script>
+</body>
+</html>
