@@ -205,6 +205,14 @@
     </select>
   </div>
 
+
+  <div class="field-group">
+    <label>🔢 SL <span>(custom serial)</span></label>
+    <input type="text" id="slField" class="status-select"
+      placeholder="Enter custom serial number…"
+      style="padding:12px 16px;font-size:14px;"/>
+  </div>
+
   <div class="field-group">
     <label>💬 Comment <span>(optional)</span></label>
     <textarea id="commentField" placeholder="Add a note or comment about this upazila…"></textarea>
@@ -265,6 +273,7 @@ async function loadUpazilas(){
         revision:((row.c[6]||{}).v||"").toString(),
         workshop:((row.c[7]||{}).v||"").toString(),
         comment:((row.c[8]||{}).v||"").toString(),
+        sl:((row.c[10]||{}).v||"").toString(),
       };
     }).filter(function(u){return u.upazila;});
   }catch(e){showToast("⚠️ Could not load upazila list","error");}
@@ -301,6 +310,7 @@ function selectUpazila(u){
   setSelectIfValue("reportStatus",u.report);
   setSelectIfValue("revisionStatus",u.revision);
   setSelectIfValue("workshopStatus",u.workshop);
+  document.getElementById("slField").value=u.sl||"";
   document.getElementById("commentField").value=u.comment||"";
 }
 
@@ -324,6 +334,7 @@ window.submitUpdate=async function(){
     report:document.getElementById("reportStatus").value,
     revision:document.getElementById("revisionStatus").value,
     workshop:document.getElementById("workshopStatus").value,
+    sl:document.getElementById("slField").value.trim(),
     comment:document.getElementById("commentField").value.trim()
   };
 
@@ -359,6 +370,7 @@ window.submitUpdate=async function(){
       selectedUpazila.report=payload.report||selectedUpazila.report;
       selectedUpazila.revision=payload.revision||selectedUpazila.revision;
       selectedUpazila.workshop=payload.workshop||selectedUpazila.workshop;
+      selectedUpazila.sl=payload.sl;
       selectedUpazila.comment=payload.comment;
     } else {
       showToast("❌ Error: "+(data.message||"Unknown error"),"error");
