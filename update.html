@@ -127,6 +127,24 @@
     #setupNotice strong{display:block;margin-bottom:5px;color:#e65100;font-size:13px;}
     #setupNotice a{color:#1976d2;}
 
+    /* ── COLLAPSIBLE SETUP ── */
+    .setup-toggle-wrap{
+      margin:12px 16px 0;
+      display:flex;
+      justify-content:flex-end;
+    }
+    #setupToggleBtn{
+      border:none;border-radius:999px;
+      background:white;color:#2c3e50;
+      padding:9px 14px;font-size:12px;font-weight:800;
+      box-shadow:0 2px 12px rgba(0,0,0,.12);
+      cursor:pointer;
+    }
+    #setupToggleBtn:active{transform:scale(.97);}
+    #setupPanel{display:none;}
+    #setupPanel.show{display:block;}
+    .setup-card{margin-top:10px;}
+
     /* ── BACK LINK ── */
     .back-link{
       display:inline-flex;align-items:center;gap:6px;
@@ -144,24 +162,41 @@
   <p>Update upazila report progress from your phone</p>
 </div>
 
-<!-- Setup notice — hide after configuring GAS URL -->
-<div id="setupNotice">
-  <strong>⚙️ One-time Setup Required</strong>
-  You need to set your Google Apps Script Web App URL below.
-  <a href="#" onclick="document.getElementById('gasSection').scrollIntoView({behavior:'smooth'})">See instructions ↓</a>
+<div class="setup-toggle-wrap">
+  <button type="button" id="setupToggleBtn" onclick="toggleSetupPanel()">⚙️ Setup / Apps Script URL</button>
 </div>
 
-<div class="card">
-  <!-- GAS URL config -->
-  <div id="gasSection" class="field-group">
-    <label>🔗 Apps Script URL <span>(saved in browser)</span></label>
-    <input type="url" id="gasUrl" class="status-select"
-      placeholder="https://script.google.com/macros/s/YOUR_ID/exec"
-      style="padding:12px 16px;font-size:13px;"
-      oninput="saveGasUrl(this.value)"/>
-    <div style="font-size:11px;color:#aaa;margin-top:4px;">
-      Deploy your Google Apps Script → paste the web app URL here. It saves automatically.
+<div id="setupPanel">
+  <!-- Setup notice — only visible when URL is missing -->
+  <div id="setupNotice">
+    <strong>⚙️ One-time Setup Required</strong>
+    Add your Google Apps Script Web App URL once. After saving, you can hide this setup section.
+  </div>
+
+  <div class="card setup-card">
+    <!-- GAS URL config -->
+    <div id="gasSection" class="field-group" style="margin-bottom:0;">
+      <label>🔗 Apps Script URL <span>(saved in browser)</span></label>
+      <input type="url" id="gasUrl" class="status-select"
+        placeholder="https://script.google.com/macros/s/YOUR_ID/exec"
+        style="padding:12px 16px;font-size:13px;"
+        oninput="saveGasUrl(this.value)"/>
+      <div style="font-size:11px;color:#aaa;margin-top:4px;">
+        Paste the Apps Script Web App URL ending with <strong>/exec</strong>. It saves automatically.
+      </div>
     </div>
+  </div>
+
+  <div class="card setup-card" style="margin-bottom:16px;">
+    <div class="section-title">📖 How to Set Up (One Time)</div>
+    <ol style="padding-left:18px;font-size:13px;color:#555;line-height:2;">
+      <li>Open your Google Sheet → <strong>Extensions → Apps Script</strong></li>
+      <li>Paste the Apps Script code from <code>appsscript.gs</code></li>
+      <li>Click <strong>Deploy → New deployment → Web app</strong></li>
+      <li>Set <em>Execute as: Me</em> and <em>Who has access: Anyone</em></li>
+      <li>Copy the Web App URL ending with <strong>/exec</strong> → paste it above</li>
+      <li>Done! This page now updates your Sheet directly 🎉</li>
+    </ol>
   </div>
 </div>
 
@@ -230,19 +265,6 @@
   <button id="submitBtn" onclick="submitUpdate()">📤 Submit Update</button>
 </div>
 
-<!-- GAS Setup Instructions -->
-<div class="card" style="margin-bottom:30px;">
-  <div class="section-title">📖 How to Set Up (One Time)</div>
-  <ol style="padding-left:18px;font-size:13px;color:#555;line-height:2;">
-    <li>Open your Google Sheet → <strong>Extensions → Apps Script</strong></li>
-    <li>Paste the Apps Script code from <code>appsscript.gs</code></li>
-    <li>Click <strong>Deploy → New deployment → Web app</strong></li>
-    <li>Set <em>"Execute as: Me"</em> and <em>"Who has access: Anyone"</em></li>
-    <li>Copy the Web App URL → paste it in the field above</li>
-    <li>Done! This page now updates your Sheet directly 🎉</li>
-  </ol>
-</div>
-
 <div id="toast">Loading…</div>
 
 <script>
@@ -254,16 +276,35 @@ var selectedUpazila=null;
 // ── Load GAS URL from localStorage ─────────────────────────────
 window.onload=function(){
   var saved=localStorage.getItem("zoning_gas_url")||"";
+  var gasInput=document.getElementById("gasUrl");
   if(saved){
-    document.getElementById("gasUrl").value=saved;
+    gasInput.value=saved;
     document.getElementById("setupNotice").style.display="none";
+    setSetupPanel(false);
+  } else {
+    setSetupPanel(true);
   }
   loadUpazilas();
 };
 
+function setSetupPanel(open){
+  var panel=document.getElementById("setupPanel");
+  var btn=document.getElementById("setupToggleBtn");
+  if(!panel||!btn) return;
+  panel.className=open?"show":"";
+  btn.textContent=open?"▲ Hide Setup":"⚙️ Setup / Apps Script URL";
+}
+
+window.toggleSetupPanel=function(){
+  var panel=document.getElementById("setupPanel");
+  var isOpen=panel&&panel.className.indexOf("show")>-1;
+  setSetupPanel(!isOpen);
+};
+
 window.saveGasUrl=function(v){
-  localStorage.setItem("zoning_gas_url",v.trim());
-  if(v.trim()) document.getElementById("setupNotice").style.display="none";
+  var clean=v.trim();
+  localStorage.setItem("zoning_gas_url",clean);
+  document.getElementById("setupNotice").style.display=clean?"none":"block";
 };
 
 // ── Load upazila list from Sheet ────────────────────────────────
