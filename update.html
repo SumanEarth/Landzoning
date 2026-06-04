@@ -36,12 +36,20 @@
     /* ── SEARCH ── */
     .search-wrap{position:relative;margin-bottom:6px;}
     .search-wrap input{
-      width:100%;padding:12px 16px 12px 40px;
+      width:100%;padding:12px 44px 12px 40px;
       border:2px solid #e0e0e0;border-radius:10px;
       font-size:15px;outline:none;transition:border .2s;
     }
     .search-wrap input:focus{border-color:#27ae60;}
     .search-icon{position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:16px;color:#aaa;}
+    .clear-search{
+      display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);
+      width:28px;height:28px;border:none;border-radius:50%;
+      background:#eef2f5;color:#7f8c8d;font-size:18px;font-weight:800;
+      line-height:28px;text-align:center;cursor:pointer;
+      transition:background .15s,color .15s,transform .1s;
+    }
+    .clear-search:active{transform:translateY(-50%) scale(.92);background:#e74c3c;color:white;}
     #searchResults{
       border:2px solid #e0e0e0;border-top:none;border-radius:0 0 10px 10px;
       max-height:220px;overflow-y:auto;display:none;background:white;
@@ -162,7 +170,8 @@
   <div class="search-wrap">
     <span class="search-icon">🔍</span>
     <input type="text" id="searchInput" placeholder="Type upazila name…" autocomplete="off"
-      oninput="searchUpazila(this.value)"/>
+      oninput="searchUpazila(this.value);toggleClearSearch(this.value)"/>
+    <button type="button" id="clearSearchBtn" class="clear-search" onclick="clearSearchEntry()" aria-label="Clear search">×</button>
   </div>
   <div id="searchResults"></div>
   <div id="selectedChip">
@@ -279,6 +288,29 @@ async function loadUpazilas(){
   }catch(e){showToast("⚠️ Could not load upazila list","error");}
 }
 
+// ── Search clear button ──────────────────────────────────────────
+window.toggleClearSearch=function(value){
+  var btn=document.getElementById("clearSearchBtn");
+  if(btn) btn.style.display=value&&value.length?"block":"none";
+};
+
+window.clearSearchEntry=function(){
+  var input=document.getElementById("searchInput");
+  var results=document.getElementById("searchResults");
+  if(input) input.value="";
+  if(results){results.innerHTML="";results.style.display="none";}
+  selectedUpazila=null;
+  var chip=document.getElementById("selectedChip");
+  if(chip) chip.style.display="none";
+  ["reportStatus","revisionStatus","workshopStatus"].forEach(function(id){
+    var el=document.getElementById(id); if(el) el.selectedIndex=0;
+  });
+  var sl=document.getElementById("slField"); if(sl) sl.value="";
+  var comment=document.getElementById("commentField"); if(comment) comment.value="";
+  toggleClearSearch("");
+  if(input) setTimeout(function(){input.focus();},50);
+};
+
 // ── Search ──────────────────────────────────────────────────────
 window.searchUpazila=function(term){
   var container=document.getElementById("searchResults");
@@ -302,6 +334,7 @@ window.searchUpazila=function(term){
 function selectUpazila(u){
   selectedUpazila=u;
   document.getElementById("searchInput").value=u.upazila;
+  toggleClearSearch(u.upazila);
   document.getElementById("searchResults").style.display="none";
   document.getElementById("chipName").textContent=u.upazila;
   document.getElementById("chipSub").textContent=u.district+" • "+u.division+" | pcode: "+u.upcode;
